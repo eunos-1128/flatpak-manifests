@@ -1,6 +1,6 @@
 app-id: uk.ac.cam.mrc_lmb.pemsley.Coot
 runtime: org.gnome.Platform
-runtime-version: "42"
+runtime-version: "46"
 sdk: org.gnome.Sdk
 command: coot
 finish-args:
