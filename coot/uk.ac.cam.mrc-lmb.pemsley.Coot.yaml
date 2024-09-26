@@ -32,6 +32,22 @@ modules:
         url: https://www2.mrc-lmb.cam.ac.uk/personal/pemsley/coot/dependencies/mmdb2-2.0.22.tar.gz
         sha256: a9646933ce9f34633e1ae4901f2383af0e5318d6490851328f5b6aa06195ab51
 
+  # - name: python3
+  #   buildsystem: simple
+  #   sources:
+  #     - type: archive
+  #       url: https://www.python.org/ftp/python/3.12.0/Python-3.12.0.tar.xz
+  #       sha256: 795c34f44df45a0e9b9710c8c71c15c671871524cd412ca14def212e8ccb155d
+
+  # - name: python3
+  #   buildsystem: simple
+  #   build-commands:
+  #     - python3 setup.py install --root=/app
+  #   sources:
+  #     - type: archive
+  #       url: https://www.python.org/ftp/python/3.12.0/Python-3.12.0.tar.xz
+  #       sha256: 795c34f44df45a0e9b9710c8c71c15c671871524cd412ca14def212e8ccb155d
+
   - name: coot
     buildsystem: autotools
     config-opts:
@@ -44,11 +60,3 @@ modules:
       - type: archive
         url: https://www2.mrc-lmb.cam.ac.uk/personal/pemsley/coot/source/releases/coot-1.1.10.tar.gz
         sha256: 447caa7bdd6f87b738d20f8db15aa278476c308e22506004ed145e04f85e0413
-
-  - name: python3
-    buildsystem: simple
-    sources:
-      - type: archive
-        url: https://www.python.org/ftp/python/3.12.0/Python-3.12.0.tar.xz
-        sha256: 795c34f44df45a0e9b9710c8c71c15c671871524cd412ca14def212e8ccb155d
-
