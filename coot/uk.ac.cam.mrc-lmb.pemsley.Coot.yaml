@@ -1,7 +1,7 @@
 app-id: uk.ac.cam.mrc_lmb.pemsley.Coot
-runtime: org.gnome.Platform
-runtime-version: "46"
-sdk: org.gnome.Sdk
+runtime: org.freedesktop.Platform
+runtime-version: "24.08"
+sdk: org.freedesktop.Sdk
 command: coot
 finish-args:
   - --share=network
@@ -14,12 +14,98 @@ modules:
   - name: boost
     buildsystem: simple
     build-commands:
-      - ./bootstrap.sh
+      - ./bootstrap.sh --with-python=/app/bin/python3
       - ./b2 install --prefix=/app
     sources:
       - type: archive
         url: https://boostorg.jfrog.io/artifactory/main/release/1.79.0/source/boost_1_79_0.tar.gz
         sha256: 273f1be93238a068aba4f9735a4a2b003019af067b9c183ed227780b8f36062c
+
+  # - name: boost-python3
+  #   buildsystem: simple
+  #   build-commands:
+  #     - ./bootstrap.sh
+  #     - ./b2 install --with-python --prefix=/app
+  #   sources:
+  #     - type: archive
+  #       url: https://boostorg.jfrog.io/artifactory/main/release/1.79.0/source/boost_1_79_0.tar.gz
+  #       sha256: 273f1be93238a068aba4f9735a4a2b003019af067b9c183ed227780b8f36062c
+
+  - name: clipper4coot
+    buildsystem: autotools
+    config-opts:
+      - --prefix=/app
+      - --enable-mmdb
+      - --enable-ccp4
+      - --enable-cif
+      - --enable-minimol
+      - --enable-cns
+      - --enable-shared
+      - --disable-static
+    sources:
+      - type: archive
+        url: https://www2.mrc-lmb.cam.ac.uk/personal/pemsley/coot/dependencies/clipper-2.1.20180802.tar.gz
+        sha256: 7c7774f224b59458e0faa104d209da906c129523fa737e81eb3b99ec772b81e0
+    build-commands:
+      - # Install legacy FFTW version 2.1.5, only single precision
+      - |
+        mkdir -p fftw2
+        wget https://fftw.org/fftw-2.1.5.tar.gz -O fftw2.tar.gz
+        tar xzf fftw2.tar.gz -C fftw2 --strip-components=1
+        cd fftw2
+        ./configure --prefix=/app/fftw2 --enable-shared --enable-float --disable-static
+        make install
+      - # Set environment variables for build
+      - |
+        export CXXFLAGS="-g -O2 -fno-strict-aliasing -Wno-narrowing"
+        export LDFLAGS="-L/app/fftw2/lib"
+        export CPPFLAGS="-I/app/fftw2/include"
+      - # Configure and install Clipper
+      - ./configure --prefix=/app --enable-mmdb --enable-ccp4 --enable-cif --enable-minimol --enable-cns --enable-shared --disable-static
+      - make install
+
+  # 必要に応じてリソースを追加
+
+  - name: gemmi
+    buildsystem: cmake
+    config-opts:
+      - -DCMAKE_INSTALL_PREFIX=/app
+    sources:
+      - type: archive
+        url: https://github.com/project-gemmi/gemmi/archive/refs/tags/v0.6.7.tar.gz
+        sha256: f3dd7c3aac0b01f0338ff5034c11be0e7b23639f018c8d6b1db7cc9d77a8dee9
+    build-commands:
+      - mkdir build
+      - cmake -S . -B build -DCMAKE_INSTALL_PREFIX=/app
+      - cmake --build build
+      - cmake --install build
+
+  # # テストデータリソースを追加
+  # - name: testdata
+  #   buildsystem: simple
+  #   sources:
+  #     - type: archive
+  #       url: https://raw.githubusercontent.com/project-gemmi/gemmi/master/tests/5i55.cif
+  #       sha256: cae937745acc22d1c3bdd21cc6fa3c36a3d9f271494c22e3e3a3ce512c72fb1d
+
+  - name: libccp4
+    buildsystem: simple
+    build-commands:
+      - cd libccp4
+      - ./configure --prefix=/app --enable-shared --disable-static --disable-fortran
+      - make
+      - make install
+    sources:
+      - type: archive
+        url: https://github.com/cctbx/ccp4io/archive/b58c4fb68902e4e6a58f4a585d0722e542516076.tar.gz
+        sha256: f1edc5a830cd4a078eae700e14b1d89612fb7a12318094363642340aafe41af6
+
+  # # テスト用のpkg-configを使用するための追加コマンド
+  # - name: pkg-config
+  #   buildsystem: simple
+  #   build-commands:
+  #     - echo "libccp4c cflags: -I/app/include" > /app/lib/pkgconfig/libccp4c.pc
+
 
   - name: mmdb2
     buildsystem: simple
@@ -32,21 +118,169 @@ modules:
         url: https://www2.mrc-lmb.cam.ac.uk/personal/pemsley/coot/dependencies/mmdb2-2.0.22.tar.gz
         sha256: a9646933ce9f34633e1ae4901f2383af0e5318d6490851328f5b6aa06195ab51
 
-  # - name: python3
-  #   buildsystem: simple
-  #   sources:
-  #     - type: archive
-  #       url: https://www.python.org/ftp/python/3.12.0/Python-3.12.0.tar.xz
-  #       sha256: 795c34f44df45a0e9b9710c8c71c15c671871524cd412ca14def212e8ccb155d
+  - name: raster3d
+    buildsystem: simple
+    build-commands:
+      - make linux
+      - inreplace Makefile.incl \
+          "prefix  = /usr/local" "prefix  = /app" \
+          "INCDIRS  = -I/usr/include -I/usr/local/include" "INCDIRS  = -I/app/include" \
+          "LIBDIRS  = -L/usr/local/lib" "LIBDIRS  = -L/app/lib" \
+          "mandir  = $(prefix)/man/manl" "mandir  = /app/share/man/manl"
+      - make all
+      - make install
+      - cp -R examples /app/share/Raster3D/
 
-  # - name: python3
+    sources:
+      - type: archive
+        url: http://www.bmsc.washington.edu/raster3d/Raster3D_3.0-7.tar.gz
+        sha256: f566b499fee341db3a95229672c6afdbdb69da7faabdbe34f6e0d332d766160c
+
+    build-options:
+      environment:
+        SDKROOT: /app
+
+    build-options:
+      env:
+        R3D_LIB: /app/share/Raster3D/materials
+
+  # # テスト用のコマンドを追加
+  # - name: avs2ps
   #   buildsystem: simple
   #   build-commands:
-  #     - python3 setup.py install --root=/app
-  #   sources:
-  #     - type: archive
-  #       url: https://www.python.org/ftp/python/3.12.0/Python-3.12.0.tar.xz
-  #       sha256: 795c34f44df45a0e9b9710c8c71c15c671871524cd412ca14def212e8ccb155d
+  #     - echo "#!/bin/sh" > /app/bin/avs2ps
+  #     - echo "echo 'outfile.ps'" >> /app/bin/avs2ps
+  #     - chmod +x /app/bin/avs2ps
+
+  - name: ssm
+    buildsystem: simple
+    build-commands:
+      - ./configure --prefix=/app --enable-ccp4 --enable-shared --disable-static
+      - inreplace ./configure "${wl}-flat_namespace" ""
+      - inreplace ./configure "${wl}-undefined ${wl}suppress" "-undefined dynamic_lookup"
+      - make
+      - make install
+
+    sources:
+      - type: archive
+        url: https://www2.mrc-lmb.cam.ac.uk/personal/pemsley/coot/dependencies/ssm-1.4.tar.gz
+        sha256: 56e7e64ed86d7d9ec59500fd34f26f881bdb9d541916d9a817c3bfb8cf0e9508
+
+    build-options:
+      environment:
+        CFLAGS: -fPIC
+
+    # pkg-configのためのテストコマンドを追加
+    test:
+      commands:
+        - pkg-config --cflags ssm
+
+  - name: rdkit
+    buildsystem: cmake
+    sources:
+      - type: archive
+        url: https://github.com/rdkit/rdkit/archive/refs/tags/Release_2024_09_1.tar.gz
+        sha256: 034c00d6e9de323506834da03400761ed8c3721095114369d06805409747a60f
+
+    build-commands:
+      - mkdir build
+      - cd build
+      - cmake .. \
+          -DCMAKE_INSTALL_RPATH=/app/lib \
+          -DRDK_INSTALL_INTREE=OFF \
+          -DRDK_BUILD_SWIG_WRAPPERS=OFF \
+          -DRDK_BUILD_AVALON_SUPPORT=ON \
+          -DRDK_BUILD_PGSQL=ON \
+          -DRDK_PGSQL_STATIC=ON \
+          -DMAEPARSER_FORCE_BUILD=ON \
+          -DCOORDGEN_FORCE_BUILD=ON \
+          -DRDK_BUILD_INCHI_SUPPORT=ON \
+          -DRDK_BUILD_CPP_TESTS=OFF \
+          -DRDK_INSTALL_STATIC_LIBS=OFF \
+          -DRDK_BUILD_CAIRO_SUPPORT=ON \
+          -DRDK_BUILD_YAEHMOP_SUPPORT=ON \
+          -DRDK_BUILD_FREESASA_SUPPORT=ON \
+          -DBoost_NO_BOOST_CMAKE=ON \
+          -DPYTHON_INCLUDE_DIR=/usr/include/python3.12 \
+          -DPYTHON_EXECUTABLE=/usr/bin/python3 \
+          -DPYTHON_NUMPY_INCLUDE_PATH=/usr/lib/python3/dist-packages/numpy/core/include \
+          -DPostgreSQL_CONFIG=/usr/bin/pg_config
+      - cmake --build .
+      - cmake --install .
+
+    dependencies:
+      - boost
+      - boost-python3
+      - cairo
+      - eigen
+      - freetype
+      - numpy
+      - postgresql
+      - swig
+
+    test:
+      commands:
+        - /usr/bin/python3 -c "import rdkit"
+        - |
+          cat << 'EOF' > test.py
+          from rdkit import Chem
+          print(Chem.MolToSmiles(Chem.MolFromSmiles('C1=CC=CN=C1')))
+          EOF
+        - /usr/bin/python3 test.py
+        - |
+          pg_ctl initdb -D test_db
+          echo "port = 5432" >> test_db/postgresql.conf
+          pg_ctl start -D test_db -l logfile
+          psql -p 5432 -c "CREATE EXTENSION rdkit;" postgres
+          pg_ctl stop -D test_db
+
+
+  - name: libdwarf
+    buildsystem: simple
+    build-commands:
+      - if [ "${FLATPAK_BUILDER}" = "true" ]; then sh autogen.sh; fi
+      - ./configure --prefix=/app --enable-shared
+      - make
+      - make install
+
+    sources:
+      - type: archive
+        url: https://www.prevanders.net/libdwarf-0.11.0.tar.xz
+        sha256: 846071fb220ac1952f9f15ebbac6c7831ef50d0369b772c07a8a8139a42e07d2
+
+    build-options:
+      environment:
+        PKG_CONFIG_PATH: /app/lib/pkgconfig
+
+    test:
+      commands:
+        - dwarfdump -V
+        - |
+          cat << 'EOF' > test.c
+          #include <dwarf.h>
+          #include <libdwarf.h>
+          #include <stdio.h>
+          #include <string.h>
+
+          int main(void) {
+            const char *out = NULL;
+            int res = dwarf_get_children_name(0, &out);
+
+            if (res != DW_DLV_OK) {
+              printf("Getting name failed\\n");
+              return 1;
+            }
+
+            if (strcmp(out, "DW_children_no") != 0) {
+              printf("Name did not match: %s\\n", out);
+              return 1;
+            }
+
+            return 0;
+          }
+          EOF
+        - gcc -I/app/include/libdwarf-0 test.c -L/app/lib -ldwarf -o test
+        - ./test
 
   - name: coot
     buildsystem: autotools
