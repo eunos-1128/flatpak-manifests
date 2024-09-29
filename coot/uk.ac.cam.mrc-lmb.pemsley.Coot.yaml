@@ -31,10 +31,89 @@ modules:
   #       url: https://boostorg.jfrog.io/artifactory/main/release/1.79.0/source/boost_1_79_0.tar.gz
   #       sha256: 273f1be93238a068aba4f9735a4a2b003019af067b9c183ed227780b8f36062c
 
-  - name: clipper4coot
+  - name: fftw2
     buildsystem: autotools
+    sources:
+      - type: archive
+        url: https://fftw.org/fftw-2.1.5.tar.gz
+        sha256: f8057fae1c7df8b99116783ef3e94a6a44518d49c72e2e630c24b689c6022630
+    config-opts:
+      - --enable-shared
+      - --enable-float
+      - --disable-static
+    build-commands:
+      - |
+        if [ "$(uname -m)" = "aarch64" ]; then
+          sed -i 's/-flat_namespace -undefined suppress/-undefined dynamic_lookup/g' configure
+        fi
+        ./configure --prefix=/app --enable-shared --enable-float --disable-static
+        make
+        make install
+
+  - name: mmdb2
+    buildsystem: autotools
+    sources:
+      - type: archive
+        url: https://www2.mrc-lmb.cam.ac.uk/personal/pemsley/coot/dependencies/mmdb2-2.0.22.tar.gz
+        sha256: a9646933ce9f34633e1ae4901f2383af0e5318d6490851328f5b6aa06195ab51
+    config-opts:
+      - --enable-shared
+      - --disable-static
+    build-options:
+      env:
+        CXXFLAGS: "-g -O2"
+    build-commands:
+      - |
+        ./configure --prefix=/app --enable-shared --disable-static
+        make
+        make install
+
+  - name: libccp4
+    buildsystem: autotooles
     config-opts:
       - --prefix=/app
+      - --enable-shared
+      - --disable-static
+      - --disable-fortran
+    sources:
+      - type: archive
+        url: https://github.com/cctbx/ccp4io/archive/b58c4fb68902e4e6a58f4a585d0722e542516076.tar.gz
+        sha256: f1edc5a830cd4a078eae700e14b1d89612fb7a12318094363642340aafe41af6
+
+    build-options:
+      - -I${FLATPAK_BUILDIR}/libccp4/lib
+      - -L${FLATPAK_DEST}/lib
+
+    build-commands:
+      - |
+        cd libccp4
+        ./configure --prefix=${FLATPAK_DEST} --enable-shared --disable-static --disable-fortran
+        make
+        make install
+
+    test-commands:
+      - |
+        if ! pkg-config --cflags libccp4c | grep -q "-I${FLATPAK_DEST}/include"; then
+          echo "libccp4c not found in pkg-config"
+          exit 1
+        fi
+
+  - name: clipper4coot
+    buildsystem: autotools
+    sources:
+      - type: archive
+        url: https://www2.mrc-lmb.cam.ac.uk/personal/pemsley/coot/dependencies/clipper-2.1.20180802.tar.gz
+        sha256: 7c7774f224b59458e0faa104d209da906c129523fa737e81eb3b99ec772b81e0
+      - type: patch
+        path: ./clipper-configure-2.patch
+        sha256: 3cf0a68163451773e9764c11c740fcbd1a91daf9d5782d94049b90f3cd1fe5ae
+
+    dependencies:
+      - fftw2
+      - mmdb2
+      - libccp4
+
+    config-opts:
       - --enable-mmdb
       - --enable-ccp4
       - --enable-cif
@@ -42,29 +121,23 @@ modules:
       - --enable-cns
       - --enable-shared
       - --disable-static
-    sources:
-      - type: archive
-        url: https://www2.mrc-lmb.cam.ac.uk/personal/pemsley/coot/dependencies/clipper-2.1.20180802.tar.gz
-        sha256: 7c7774f224b59458e0faa104d209da906c129523fa737e81eb3b99ec772b81e0
+
+    build-options:
+      cxxflags: "-g -O2 -fno-strict-aliasing -Wno-narrowing"
+      env:
+        LDFLAGS: "-L/app/lib"
+        CPPFLAGS: "-I/app/include"
+
     build-commands:
-      - # Install legacy FFTW version 2.1.5, only single precision
-      - |
-        mkdir -p fftw2
-        wget https://fftw.org/fftw-2.1.5.tar.gz -O fftw2.tar.gz
-        tar xzf fftw2.tar.gz -C fftw2 --strip-components=1
-        cd fftw2
-        ./configure --prefix=/app/fftw2 --enable-shared --enable-float --disable-static
-        make install
-      - # Set environment variables for build
       - |
         export CXXFLAGS="-g -O2 -fno-strict-aliasing -Wno-narrowing"
-        export LDFLAGS="-L/app/fftw2/lib"
-        export CPPFLAGS="-I/app/fftw2/include"
-      - # Configure and install Clipper
-      - ./configure --prefix=/app --enable-mmdb --enable-ccp4 --enable-cif --enable-minimol --enable-cns --enable-shared --disable-static
-      - make install
+        export LDFLAGS="-L${FLATPAK_DEST}/usr/lib/fftw2/lib"
+        export CPPFLAGS="-I${FLATPAK_DEST}/usr/include/fftw2"
 
-  # 必要に応じてリソースを追加
+        # Configure and build Clipper4coot
+        ./configure --prefix=/app --enable-mmdb --enable-ccp4 --enable-cif --enable-minimol --enable-cns --enable-shared --disable-static
+        make
+        make install
 
   - name: gemmi
     buildsystem: cmake
@@ -87,36 +160,6 @@ modules:
   #     - type: archive
   #       url: https://raw.githubusercontent.com/project-gemmi/gemmi/master/tests/5i55.cif
   #       sha256: cae937745acc22d1c3bdd21cc6fa3c36a3d9f271494c22e3e3a3ce512c72fb1d
-
-  - name: libccp4
-    buildsystem: simple
-    build-commands:
-      - cd libccp4
-      - ./configure --prefix=/app --enable-shared --disable-static --disable-fortran
-      - make
-      - make install
-    sources:
-      - type: archive
-        url: https://github.com/cctbx/ccp4io/archive/b58c4fb68902e4e6a58f4a585d0722e542516076.tar.gz
-        sha256: f1edc5a830cd4a078eae700e14b1d89612fb7a12318094363642340aafe41af6
-
-  # # テスト用のpkg-configを使用するための追加コマンド
-  # - name: pkg-config
-  #   buildsystem: simple
-  #   build-commands:
-  #     - echo "libccp4c cflags: -I/app/include" > /app/lib/pkgconfig/libccp4c.pc
-
-
-  - name: mmdb2
-    buildsystem: simple
-    build-commands:
-      - ./configure --prefix=/app
-      - make
-      - make install
-    sources:
-      - type: archive
-        url: https://www2.mrc-lmb.cam.ac.uk/personal/pemsley/coot/dependencies/mmdb2-2.0.22.tar.gz
-        sha256: a9646933ce9f34633e1ae4901f2383af0e5318d6490851328f5b6aa06195ab51
 
   - name: raster3d
     buildsystem: simple
@@ -153,7 +196,14 @@ modules:
   #     - chmod +x /app/bin/avs2ps
 
   - name: ssm
-    buildsystem: simple
+    buildsystem: autotools
+    sources:
+      - type: archive
+        url: https://www2.mrc-lmb.cam.ac.uk/personal/pemsley/coot/dependencies/ssm-1.4.tar.gz
+        sha256: 56e7e64ed86d7d9ec59500fd34f26f881bdb9d541916d9a817c3bfb8cf0e9508
+    build-options:
+      environment:
+        CFLAGS: -fPIC
     build-commands:
       - ./configure --prefix=/app --enable-ccp4 --enable-shared --disable-static
       - inreplace ./configure "${wl}-flat_namespace" ""
@@ -161,16 +211,6 @@ modules:
       - make
       - make install
 
-    sources:
-      - type: archive
-        url: https://www2.mrc-lmb.cam.ac.uk/personal/pemsley/coot/dependencies/ssm-1.4.tar.gz
-        sha256: 56e7e64ed86d7d9ec59500fd34f26f881bdb9d541916d9a817c3bfb8cf0e9508
-
-    build-options:
-      environment:
-        CFLAGS: -fPIC
-
-    # pkg-configのためのテストコマンドを追加
     test:
       commands:
         - pkg-config --cflags ssm
@@ -285,8 +325,11 @@ modules:
   - name: coot
     buildsystem: autotools
     config-opts:
+      - --with-enhanced-ligand-tools
       - --with-boost=/app
+      - --with-boost-libdir=/app/lib
       - --with-rdkit-prefix=/app
+      - --with-fftw-prefix=/app/fftw2
       - --with-backward
       - --with-libdw
       - BOOST_PYTHON_LIB=boost_python312-mt
@@ -294,3 +337,12 @@ modules:
       - type: archive
         url: https://www2.mrc-lmb.cam.ac.uk/personal/pemsley/coot/source/releases/coot-1.1.10.tar.gz
         sha256: 447caa7bdd6f87b738d20f8db15aa278476c308e22506004ed145e04f85e0413
+      - type: patch
+        path: clipper-configure-2.patch
+    build-options:
+      append-path:
+        - /app/lib
+        - /app/bin
+      environment:
+        CXXFLAGS: "-fPIC"
+        CPPFLAGS: "-D_USE_BOOST=1"
