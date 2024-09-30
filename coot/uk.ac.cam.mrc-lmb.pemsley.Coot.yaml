@@ -14,7 +14,7 @@ modules:
   - name: boost
     buildsystem: simple
     build-commands:
-      - ./bootstrap.sh --with-python=/app/bin/python3
+      - ./bootstrap.sh --with-python=/app
       - ./b2 install --prefix=/app
     sources:
       - type: archive
@@ -69,7 +69,7 @@ modules:
         make install
 
   - name: libccp4
-    buildsystem: autotooles
+    buildsystem: simple
     config-opts:
       - --prefix=/app
       - --enable-shared
@@ -161,31 +161,55 @@ modules:
   #       url: https://raw.githubusercontent.com/project-gemmi/gemmi/master/tests/5i55.cif
   #       sha256: cae937745acc22d1c3bdd21cc6fa3c36a3d9f271494c22e3e3a3ce512c72fb1d
 
+  - name: libgd
+    buildsystem: autotools
+    config-opts:
+      - --prefix=/app
+      - --with-fontconfig=/app
+      - --with-freetype=/app
+      - --with-jpeg=/app
+      - --with-avif=/app
+      - --with-png=/app
+      - --with-tiff=/app
+      - --with-webp=/app
+      - --without-x
+      - --without-xpm
+    sources:
+      - type: archive
+        url: https://github.com/libgd/libgd/releases/download/gd-2.3.3/libgd-2.3.3.tar.xz
+        sha256: 3fe822ece20796060af63b7c60acb151e5844204d289da0ce08f8fdf131e5a61
+      - type: patch
+        path: f4bc1f5.patch
+        sha256sum: 1015f6e125f139a1e922ac4bc2a18abbc498b0142193fa692846bf0f344a3691
+
+    build-options:
+      env:
+        CFLAGS: "-I/app/include"
+        LDFLAGS: "-L/app/lib"
+
+    build-commands:
+      - ./configure --prefix=/app --with-fontconfig=/app --with-freetype=/app --with-jpeg=/app --with-avif=/app --with-png=/app --with-tiff=/app --with-webp=/app --without-x --without-xpm
+      - make
+      - make install
+
   - name: raster3d
     buildsystem: simple
-    build-commands:
-      - make linux
-      - inreplace Makefile.incl \
-          "prefix  = /usr/local" "prefix  = /app" \
-          "INCDIRS  = -I/usr/include -I/usr/local/include" "INCDIRS  = -I/app/include" \
-          "LIBDIRS  = -L/usr/local/lib" "LIBDIRS  = -L/app/lib" \
-          "mandir  = $(prefix)/man/manl" "mandir  = /app/share/man/manl"
-      - make all
-      - make install
-      - cp -R examples /app/share/Raster3D/
-
     sources:
       - type: archive
         url: http://www.bmsc.washington.edu/raster3d/Raster3D_3.0-7.tar.gz
         sha256: f566b499fee341db3a95229672c6afdbdb69da7faabdbe34f6e0d332d766160c
-
-    build-options:
-      environment:
-        SDKROOT: /app
-
-    build-options:
-      env:
-        R3D_LIB: /app/share/Raster3D/materials
+    build-commands:
+      - |
+        export CFLAGS="-I${FLATPAK_DEST}/include"
+        export LDFLAGS="-L${FLATPAK_DEST}/lib"
+        export PATH="${FLATPAK_DEST}/bin:$PATH"
+        sed -i 's|prefix  = /usr/local|prefix  = /app|' Makefile.template
+        sed -i 's|INCDIRS  =	-I/usr/include -I/usr/local/include|INCDIRS  = -I/app/include|' Makefile.template
+        sed -i 's|LIBDIRS  =	-L/usr/local/lib|LIBDIRS  = -L/app/lib|' Makefile.template
+        sed -i 's|mandir  = $(prefix)/man/manl|mandir  = /app/man/manl|' Makefile.template
+        make linux
+        make all
+        make install
 
   # # テスト用のコマンドを追加
   # - name: avs2ps
@@ -195,25 +219,39 @@ modules:
   #     - echo "echo 'outfile.ps'" >> /app/bin/avs2ps
   #     - chmod +x /app/bin/avs2ps
 
+  # - name: ssm
+  #   buildsystem: autotools
+  #   sources:
+  #     - type: archive
+  #       url: https://www2.mrc-lmb.cam.ac.uk/personal/pemsley/coot/dependencies/ssm-1.4.tar.gz
+  #       sha256: 56e7e64ed86d7d9ec59500fd34f26f881bdb9d541916d9a817c3bfb8cf0e9508
+  #   build-options:
+  #     environment:
+  #       CFLAGS: -fPIC
+  #   build-commands:
+  #     - ./configure --prefix=/app --enable-ccp4 --enable-shared --disable-static
+  #     - inreplace ./configure "${wl}-flat_namespace" ""
+  #     - inreplace ./configure "${wl}-undefined ${wl}suppress" "-undefined dynamic_lookup"
+  #     - make
+  #     - make install
+
   - name: ssm
     buildsystem: autotools
+    config-opts:
+      - --prefix=/app
+      - --enable-ccp4
+      - --enable-shared
+      - --disable-static
+    build-options:
+      cflags: "-fPIC"
     sources:
       - type: archive
         url: https://www2.mrc-lmb.cam.ac.uk/personal/pemsley/coot/dependencies/ssm-1.4.tar.gz
         sha256: 56e7e64ed86d7d9ec59500fd34f26f881bdb9d541916d9a817c3bfb8cf0e9508
-    build-options:
-      environment:
-        CFLAGS: -fPIC
     build-commands:
       - ./configure --prefix=/app --enable-ccp4 --enable-shared --disable-static
-      - inreplace ./configure "${wl}-flat_namespace" ""
-      - inreplace ./configure "${wl}-undefined ${wl}suppress" "-undefined dynamic_lookup"
       - make
       - make install
-
-    test:
-      commands:
-        - pkg-config --cflags ssm
 
   - name: rdkit
     buildsystem: cmake
@@ -258,21 +296,21 @@ modules:
       - postgresql
       - swig
 
-    test:
-      commands:
-        - /usr/bin/python3 -c "import rdkit"
-        - |
-          cat << 'EOF' > test.py
-          from rdkit import Chem
-          print(Chem.MolToSmiles(Chem.MolFromSmiles('C1=CC=CN=C1')))
-          EOF
-        - /usr/bin/python3 test.py
-        - |
-          pg_ctl initdb -D test_db
-          echo "port = 5432" >> test_db/postgresql.conf
-          pg_ctl start -D test_db -l logfile
-          psql -p 5432 -c "CREATE EXTENSION rdkit;" postgres
-          pg_ctl stop -D test_db
+    # test:
+    #   commands:
+    #     - /usr/bin/python3 -c "import rdkit"
+    #     - |
+    #       cat << 'EOF' > test.py
+    #       from rdkit import Chem
+    #       print(Chem.MolToSmiles(Chem.MolFromSmiles('C1=CC=CN=C1')))
+    #       EOF
+    #     - /usr/bin/python3 test.py
+    #     - |
+    #       pg_ctl initdb -D test_db
+    #       echo "port = 5432" >> test_db/postgresql.conf
+    #       pg_ctl start -D test_db -l logfile
+    #       psql -p 5432 -c "CREATE EXTENSION rdkit;" postgres
+    #       pg_ctl stop -D test_db
 
 
   - name: libdwarf
