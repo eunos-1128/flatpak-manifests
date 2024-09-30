@@ -253,6 +253,18 @@ modules:
       - make
       - make install
 
+  - name: git
+    sources:
+      - type: archive
+        url: https://github.com/git/git/archive/refs/tags/v2.46.2.tar.gz
+        sha256: 99259de9f32253495c046e053a930ae2ef238be89878c1fe52f815dd22aefc7e
+    buildsystem: simple
+    build-commands:
+      - make configure
+      - ./configure --prefix=/app
+      - make all
+      - make install
+
   - name: rdkit
     buildsystem: cmake
     sources:
@@ -261,30 +273,31 @@ modules:
         sha256: 034c00d6e9de323506834da03400761ed8c3721095114369d06805409747a60f
 
     build-commands:
-      - mkdir build
-      - cd build
-      - cmake .. \
-          -DCMAKE_INSTALL_RPATH=/app/lib \
-          -DRDK_INSTALL_INTREE=OFF \
-          -DRDK_BUILD_SWIG_WRAPPERS=OFF \
-          -DRDK_BUILD_AVALON_SUPPORT=ON \
-          -DRDK_BUILD_PGSQL=ON \
-          -DRDK_PGSQL_STATIC=ON \
-          -DMAEPARSER_FORCE_BUILD=ON \
-          -DCOORDGEN_FORCE_BUILD=ON \
-          -DRDK_BUILD_INCHI_SUPPORT=ON \
-          -DRDK_BUILD_CPP_TESTS=OFF \
-          -DRDK_INSTALL_STATIC_LIBS=OFF \
-          -DRDK_BUILD_CAIRO_SUPPORT=ON \
-          -DRDK_BUILD_YAEHMOP_SUPPORT=ON \
-          -DRDK_BUILD_FREESASA_SUPPORT=ON \
-          -DBoost_NO_BOOST_CMAKE=ON \
-          -DPYTHON_INCLUDE_DIR=/usr/include/python3.12 \
-          -DPYTHON_EXECUTABLE=/usr/bin/python3 \
-          -DPYTHON_NUMPY_INCLUDE_PATH=/usr/lib/python3/dist-packages/numpy/core/include \
-          -DPostgreSQL_CONFIG=/usr/bin/pg_config
-      - cmake --build .
-      - cmake --install .
+      - echo $(git --version)
+      # - mkdir build
+      # - cd build
+      # - cmake .. \
+      #     -DCMAKE_INSTALL_RPATH=/app/lib \
+      #     -DRDK_INSTALL_INTREE=OFF \
+      #     -DRDK_BUILD_SWIG_WRAPPERS=OFF \
+      #     -DRDK_BUILD_AVALON_SUPPORT=ON \
+      #     -DRDK_BUILD_PGSQL=ON \
+      #     -DRDK_PGSQL_STATIC=ON \
+      #     -DMAEPARSER_FORCE_BUILD=ON \
+      #     -DCOORDGEN_FORCE_BUILD=ON \
+      #     -DRDK_BUILD_INCHI_SUPPORT=ON \
+      #     -DRDK_BUILD_CPP_TESTS=OFF \
+      #     -DRDK_INSTALL_STATIC_LIBS=OFF \
+      #     -DRDK_BUILD_CAIRO_SUPPORT=ON \
+      #     -DRDK_BUILD_YAEHMOP_SUPPORT=ON \
+      #     -DRDK_BUILD_FREESASA_SUPPORT=ON \
+      #     -DBoost_NO_BOOST_CMAKE=ON \
+      #     -DPYTHON_INCLUDE_DIR=/usr/include/python3.12 \
+      #     -DPYTHON_EXECUTABLE=/usr/bin/python3 \
+      #     -DPYTHON_NUMPY_INCLUDE_PATH=/usr/lib/python3/dist-packages/numpy/core/include \
+      #     -DPostgreSQL_CONFIG=/usr/bin/pg_config
+      # - cmake --build .
+      # - cmake --install .
 
     dependencies:
       - boost
