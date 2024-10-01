@@ -10,27 +10,6 @@ finish-args:
   - --device=dri
   - --filesystem=host
 
-modules:
-  - name: boost
-    buildsystem: simple
-    build-commands:
-      - ./bootstrap.sh --with-python=/app
-      - ./b2 install --prefix=/app
-    sources:
-      - type: archive
-        url: https://boostorg.jfrog.io/artifactory/main/release/1.79.0/source/boost_1_79_0.tar.gz
-        sha256: 273f1be93238a068aba4f9735a4a2b003019af067b9c183ed227780b8f36062c
-
-  # - name: boost-python3
-  #   buildsystem: simple
-  #   build-commands:
-  #     - ./bootstrap.sh
-  #     - ./b2 install --with-python --prefix=/app
-  #   sources:
-  #     - type: archive
-  #       url: https://boostorg.jfrog.io/artifactory/main/release/1.79.0/source/boost_1_79_0.tar.gz
-  #       sha256: 273f1be93238a068aba4f9735a4a2b003019af067b9c183ed227780b8f36062c
-
   - name: fftw2
     buildsystem: autotools
     sources:
@@ -70,27 +49,20 @@ modules:
 
   - name: libccp4
     buildsystem: simple
-    config-opts:
-      - --prefix=/app
-      - --enable-shared
-      - --disable-static
-      - --disable-fortran
     sources:
       - type: archive
         url: https://github.com/cctbx/ccp4io/archive/b58c4fb68902e4e6a58f4a585d0722e542516076.tar.gz
         sha256: f1edc5a830cd4a078eae700e14b1d89612fb7a12318094363642340aafe41af6
-
     build-options:
-      - -I${FLATPAK_BUILDIR}/libccp4/lib
-      - -L${FLATPAK_DEST}/lib
-
+      env:
+        CPPFLAGS: "-I${FLATPAK_BUILDIR}/libccp4/lib"
+        LDFLAGS: "-L${FLATPAK_DEST}/lib"
     build-commands:
       - |
         cd libccp4
-        ./configure --prefix=${FLATPAK_DEST} --enable-shared --disable-static --disable-fortran
+        ./configure --prefix="/app" --enable-shared --disable-static --disable-fortran
         make
         make install
-
     test-commands:
       - |
         if ! pkg-config --cflags libccp4c | grep -q "-I${FLATPAK_DEST}/include"; then
@@ -107,12 +79,10 @@ modules:
       - type: patch
         path: ./clipper-configure-2.patch
         sha256: 3cf0a68163451773e9764c11c740fcbd1a91daf9d5782d94049b90f3cd1fe5ae
-
     dependencies:
       - fftw2
       - mmdb2
       - libccp4
-
     config-opts:
       - --enable-mmdb
       - --enable-ccp4
@@ -121,13 +91,11 @@ modules:
       - --enable-cns
       - --enable-shared
       - --disable-static
-
     build-options:
       cxxflags: "-g -O2 -fno-strict-aliasing -Wno-narrowing"
       env:
         LDFLAGS: "-L/app/lib"
         CPPFLAGS: "-I/app/include"
-
     build-commands:
       - |
         export CXXFLAGS="-g -O2 -fno-strict-aliasing -Wno-narrowing"
@@ -153,14 +121,6 @@ modules:
       - cmake --build build
       - cmake --install build
 
-  # # テストデータリソースを追加
-  # - name: testdata
-  #   buildsystem: simple
-  #   sources:
-  #     - type: archive
-  #       url: https://raw.githubusercontent.com/project-gemmi/gemmi/master/tests/5i55.cif
-  #       sha256: cae937745acc22d1c3bdd21cc6fa3c36a3d9f271494c22e3e3a3ce512c72fb1d
-
   - name: libgd
     buildsystem: autotools
     config-opts:
@@ -179,7 +139,7 @@ modules:
         url: https://github.com/libgd/libgd/releases/download/gd-2.3.3/libgd-2.3.3.tar.xz
         sha256: 3fe822ece20796060af63b7c60acb151e5844204d289da0ce08f8fdf131e5a61
       - type: patch
-        path: f4bc1f5.patch
+        path: gd.h.patch
         sha256sum: 1015f6e125f139a1e922ac4bc2a18abbc498b0142193fa692846bf0f344a3691
 
     build-options:
@@ -211,30 +171,6 @@ modules:
         make all
         make install
 
-  # # テスト用のコマンドを追加
-  # - name: avs2ps
-  #   buildsystem: simple
-  #   build-commands:
-  #     - echo "#!/bin/sh" > /app/bin/avs2ps
-  #     - echo "echo 'outfile.ps'" >> /app/bin/avs2ps
-  #     - chmod +x /app/bin/avs2ps
-
-  # - name: ssm
-  #   buildsystem: autotools
-  #   sources:
-  #     - type: archive
-  #       url: https://www2.mrc-lmb.cam.ac.uk/personal/pemsley/coot/dependencies/ssm-1.4.tar.gz
-  #       sha256: 56e7e64ed86d7d9ec59500fd34f26f881bdb9d541916d9a817c3bfb8cf0e9508
-  #   build-options:
-  #     environment:
-  #       CFLAGS: -fPIC
-  #   build-commands:
-  #     - ./configure --prefix=/app --enable-ccp4 --enable-shared --disable-static
-  #     - inreplace ./configure "${wl}-flat_namespace" ""
-  #     - inreplace ./configure "${wl}-undefined ${wl}suppress" "-undefined dynamic_lookup"
-  #     - make
-  #     - make install
-
   - name: ssm
     buildsystem: autotools
     config-opts:
@@ -253,17 +189,52 @@ modules:
       - make
       - make install
 
-  - name: git
+  - name: Catch2
+    buildsystem: cmake
+    builddir: true
+    config-opts:
+      - "-DCMAKE_CXX_STANDARD=17"
+      - "-DCMAKE_PREFIX_PATH=/app"
     sources:
       - type: archive
-        url: https://github.com/git/git/archive/refs/tags/v2.46.2.tar.gz
-        sha256: 99259de9f32253495c046e053a930ae2ef238be89878c1fe52f815dd22aefc7e
+        url: https://github.com/catchorg/Catch2/archive/refs/tags/v3.7.1.tar.gz
+        sha256: c991b247a1a0d7bb9c39aa35faf0fe9e19764213f28ffba3109388e62ee0269c
+
+modules:
+  - name: boost
     buildsystem: simple
     build-commands:
-      - make configure
-      - ./configure --prefix=/app
-      - make all
-      - make install
+      - ./bootstrap.sh --with-icu=/app --prefix=/app --libdir=/app/lib
+      - ./b2 install --prefix=/app --libdir=/app/lib -d2 -j$(nproc) threading=multi,single link=shared,static
+    sources:
+      - type: archive
+        url: https://github.com/boostorg/boost/releases/download/boost-1.86.0/boost-1.86.0-b2-nodocs.tar.xz
+        sha256: a4d99d032ab74c9c5e76eddcecc4489134282245fffa7e079c5804b92b45f51d
+    config-opts:
+      - --without-libraries=python,mpi
+    cleanup:
+      - /app/share/boost
+    build-options:
+      env:
+        CXXFLAGS: "-std=c++14"
+
+  - name: boost-python3
+    buildsystem: simple
+    build-commands:
+      - ./bootstrap.sh --prefix=/app --libdir=/app/lib --with-python=python3 --with-python-root=/app --with-libraries=python
+      - ./b2 --build-dir=build-python3 --stagedir=stage-python3 --libdir=/app/lib --prefix=/app python=$(python3 -c 'import sys; print(".".join(map(str, sys.version_info[:2])))') -d2 -j$(nproc) threading=multi,single link=shared,static install
+    sources:
+      - type: archive
+        url: https://github.com/boostorg/boost/releases/download/boost-1.86.0/boost-1.86.0-b2-nodocs.tar.xz
+        sha256: a4d99d032ab74c9c5e76eddcecc4489134282245fffa7e079c5804b92b45f51d
+    build-options:
+      env:
+        CXXFLAGS: "-std=c++14"
+        PYTHON: "/app/bin/python3"
+        PYTHONINCLUDE: "/app/include/python$(python3 -c 'import sys; print(\".\".join(map(str, sys.version_info[:2])))')"
+        PYTHONLIB: "/app/lib"
+    cleanup:
+      - /app/share/boost
 
   - name: rdkit
     buildsystem: cmake
@@ -271,33 +242,34 @@ modules:
       - type: archive
         url: https://github.com/rdkit/rdkit/archive/refs/tags/Release_2024_09_1.tar.gz
         sha256: 034c00d6e9de323506834da03400761ed8c3721095114369d06805409747a60f
-
+    build-options:
+      environment:
+        CMAKE_PREFIX_PATH: "/app"
     build-commands:
-      - echo $(git --version)
-      # - mkdir build
-      # - cd build
-      # - cmake .. \
-      #     -DCMAKE_INSTALL_RPATH=/app/lib \
-      #     -DRDK_INSTALL_INTREE=OFF \
-      #     -DRDK_BUILD_SWIG_WRAPPERS=OFF \
-      #     -DRDK_BUILD_AVALON_SUPPORT=ON \
-      #     -DRDK_BUILD_PGSQL=ON \
-      #     -DRDK_PGSQL_STATIC=ON \
-      #     -DMAEPARSER_FORCE_BUILD=ON \
-      #     -DCOORDGEN_FORCE_BUILD=ON \
-      #     -DRDK_BUILD_INCHI_SUPPORT=ON \
-      #     -DRDK_BUILD_CPP_TESTS=OFF \
-      #     -DRDK_INSTALL_STATIC_LIBS=OFF \
-      #     -DRDK_BUILD_CAIRO_SUPPORT=ON \
-      #     -DRDK_BUILD_YAEHMOP_SUPPORT=ON \
-      #     -DRDK_BUILD_FREESASA_SUPPORT=ON \
-      #     -DBoost_NO_BOOST_CMAKE=ON \
-      #     -DPYTHON_INCLUDE_DIR=/usr/include/python3.12 \
-      #     -DPYTHON_EXECUTABLE=/usr/bin/python3 \
-      #     -DPYTHON_NUMPY_INCLUDE_PATH=/usr/lib/python3/dist-packages/numpy/core/include \
-      #     -DPostgreSQL_CONFIG=/usr/bin/pg_config
-      # - cmake --build .
-      # - cmake --install .
+      - mkdir build
+      - cd build
+      - cmake .. \
+          -DCMAKE_INSTALL_RPATH=/app/lib \
+          -DRDK_INSTALL_INTREE=OFF \
+          -DRDK_BUILD_SWIG_WRAPPERS=OFF \
+          -DRDK_BUILD_AVALON_SUPPORT=ON \
+          -DRDK_BUILD_PGSQL=ON \
+          -DRDK_PGSQL_STATIC=ON \
+          -DMAEPARSER_FORCE_BUILD=ON \
+          -DCOORDGEN_FORCE_BUILD=ON \
+          -DRDK_BUILD_INCHI_SUPPORT=ON \
+          -DRDK_BUILD_CPP_TESTS=OFF \
+          -DRDK_INSTALL_STATIC_LIBS=OFF \
+          -DRDK_BUILD_CAIRO_SUPPORT=ON \
+          -DRDK_BUILD_YAEHMOP_SUPPORT=ON \
+          -DRDK_BUILD_FREESASA_SUPPORT=ON \
+          -DBoost_NO_BOOST_CMAKE=ON \
+          -DPYTHON_INCLUDE_DIR=/app/include/python3.12 \
+          -DPYTHON_EXECUTABLE=/app/bin/python3 \
+          -DPYTHON_NUMPY_INCLUDE_PATH=/app/lib/python3/dist-packages/numpy/core/include \
+          -DPostgreSQL_CONFIG=/app/bin/pg_config
+      - cmake --build .
+      - cmake --install .
 
     dependencies:
       - boost
@@ -325,24 +297,20 @@ modules:
     #       psql -p 5432 -c "CREATE EXTENSION rdkit;" postgres
     #       pg_ctl stop -D test_db
 
-
   - name: libdwarf
+    sources:
+      - type: archive
+        url: https://www.prevanders.net/libdwarf-0.11.0.tar.xz
+        sha256: 846071fb220ac1952f9f15ebbac6c7831ef50d0369b772c07a8a8139a42e07d2
     buildsystem: simple
+    build-options:
+      environment:
+        PKG_CONFIG_PATH: /app/lib/pkgconfig
     build-commands:
       - if [ "${FLATPAK_BUILDER}" = "true" ]; then sh autogen.sh; fi
       - ./configure --prefix=/app --enable-shared
       - make
       - make install
-
-    sources:
-      - type: archive
-        url: https://www.prevanders.net/libdwarf-0.11.0.tar.xz
-        sha256: 846071fb220ac1952f9f15ebbac6c7831ef50d0369b772c07a8a8139a42e07d2
-
-    build-options:
-      environment:
-        PKG_CONFIG_PATH: /app/lib/pkgconfig
-
     test:
       commands:
         - dwarfdump -V
@@ -373,6 +341,100 @@ modules:
         - gcc -I/app/include/libdwarf-0 test.c -L/app/lib -ldwarf -o test
         - ./test
 
+  - name: gsl
+    buildsystem: simple
+    builddir: true
+    config-opts:
+      - --prefix=/app
+    sources:
+      - type: archive
+        url: https://ftp.gnu.org/gnu/gsl/gsl-2.8.tar.gz
+        sha256: 6a99eeed15632c6354895b1dd542ed5a855c0f15d9ad1326c6fe2b2c9e423190
+    build-commands:
+      - ./configure --prefix=/app
+      - make
+      - make install
+    test-commands:
+      - /app/bin/gsl-randist 0 20 cauchy 30
+
+  - name: glm
+    buildsystem: cmake
+    sources:
+      - type: archive
+        url: https://github.com/g-truc/glm/archive/refs/tags/1.0.1.tar.gz
+        sha256: 9f3174561fd26904b23f0db5e560971cbf9b3cbda0b280f04d5c379d03bf234c
+    build-options:
+      build-tests: false
+    build-commands:
+      - cmake -S . -B build -DGLM_BUILD_TESTS=OFF -DBUILD_SHARED_LIBS=ON -DCMAKE_INSTALL_PREFIX=/app
+      - cmake --build build
+      - cmake --install build
+      - |
+        echo 'prefix=/app
+        includedir=${prefix}/include
+        libdir=${prefix}/lib
+
+        Name: GLM
+        Description: OpenGL Mathematics
+        Version: 1.0.1
+        Cflags: -I${includedir}' > /app/lib/pkgconfig/glm.pc
+    test-commands:
+      - |
+        echo '#include <glm/vec2.hpp>
+        int main() {
+            glm::vec2 a(1.0f, 0.0f);
+            return 0;
+        }' > test.cpp
+      - g++ -o test test.cpp -I/app/include
+      - ./test
+
+  - name: gtk4
+    buildsystem: meson
+    sources:
+      - type: archive
+        url: https://download.gnome.org/sources/gtk/4.16/gtk-4.16.2.tar.xz
+        sha256: 34b624848e5de22a138b675ad6f39c0c7b9d67907c10e1fc7e5b03060e8d5437
+
+    config-opts:
+      - -Dbuild-examples=false
+      - -Dbuild-tests=false
+      - -Dintrospection=enabled
+      - -Dman-pages=false
+      - -Dmedia-gstreamer=disabled
+      - -Dvulkan=disabled
+
+    build-options:
+      environment:
+        DESTDIR: "/app"
+        CPPFLAGS: "-DG_DISABLE_ASSERT -DG_DISABLE_CAST_CHECKS"
+
+    build:
+      commands:
+        - meson setup build
+        - meson compile -C build
+        - meson install -C build
+
+    post-install:
+      commands:
+        - glib-compile-schemas /app/share/glib-2.0/schemas
+        - gtk4-update-icon-cache -f -t /app/share/icons/hicolor
+        - gio-querymodules /app/lib/gtk-4.0/4.0.0/printbackends
+
+    test-commands:
+      - |
+        cat << EOF > test.c
+        #include <gtk/gtk.h>
+
+        int main(int argc, char *argv[]) {
+          gtk_disable_setlocale();
+          return 0;
+        }
+        EOF
+      - gcc test.c -o test $(pkg-config --cflags --libs gtk4)
+      - ./test
+      - assert grep -q "4.16.2" ${libdir}/pkgconfig/gtk4.pc
+
+
   - name: coot
     buildsystem: autotools
     config-opts:
@@ -388,8 +450,8 @@ modules:
       - type: archive
         url: https://www2.mrc-lmb.cam.ac.uk/personal/pemsley/coot/source/releases/coot-1.1.10.tar.gz
         sha256: 447caa7bdd6f87b738d20f8db15aa278476c308e22506004ed145e04f85e0413
-      - type: patch
-        path: clipper-configure-2.patch
+      # - type: patch
+      #   path: clipper-configure-2.patch
     build-options:
       append-path:
         - /app/lib
