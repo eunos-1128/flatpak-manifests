@@ -204,41 +204,37 @@ modules:
   - name: boost
     buildsystem: simple
     build-commands:
-      - ./bootstrap.sh --with-icu=/app --prefix=/app --libdir=/app/lib --with-libraries=python3
-      - ./b2 install --prefix=/app --libdir=/app/lib -d2 -j$(nproc) threading=multi,single link=shared,static python=$(python3 -c 'import sys; print(".".join(map(str, sys.version_info[:2])))')
+      - ./bootstrap.sh --with-icu=/app --prefix=/app --libdir=/app/lib
+      - ./b2 install --prefix=/app --libdir=/app/lib -d2 -j$(nproc) threading=multi,single link=shared,static
     sources:
       - type: archive
         url: https://github.com/boostorg/boost/releases/download/boost-1.86.0/boost-1.86.0-b2-nodocs.tar.xz
         sha256: a4d99d032ab74c9c5e76eddcecc4489134282245fffa7e079c5804b92b45f51d
     config-opts:
-      - --without-libraries=mpi
+      - --without-libraries=[python, mpi]
     cleanup:
       - /app/share/boost
+    build-options:
+      env:
+        CXXFLAGS: "-std=c++14"
+
+  - name: boost-python3
+    buildsystem: simple
+    build-commands:
+      - ./bootstrap.sh --prefix=/app --libdir=/app/lib --with-python=python3 --with-python-root=/app --with-libraries=python
+      - ./b2 --build-dir=build-python3 --stagedir=stage-python3 --libdir=/app/lib --prefix=/app -d2 -j$(nproc) threading=multi,single link=shared,static install
+    sources:
+      - type: archive
+        url: https://github.com/boostorg/boost/releases/download/boost-1.86.0/boost-1.86.0-b2-nodocs.tar.xz
+        sha256: a4d99d032ab74c9c5e76eddcecc4489134282245fffa7e079c5804b92b45f51d
     build-options:
       env:
         CXXFLAGS: "-std=c++14"
         PYTHON: "/app/bin/python3"
         PYTHONINCLUDE: "/app/include/python$(python3 -c 'import sys; print(\".\".join(map(str, sys.version_info[:2])))')"
         PYTHONLIB: "/app/lib"
-        CMAKE_PREFIX_PATH: "/app/lib/cmake/Boost-1.86.0"
-
-  # - name: boost-python3
-  #   buildsystem: simple
-  #   build-commands:
-  #     - ./bootstrap.sh --prefix=/app --libdir=/app/lib --with-python=python3 --with-python-root=/app --with-libraries=python
-  #     - ./b2 --build-dir=build-python3 --stagedir=stage-python3 --libdir=/app/lib --prefix=/app python=$(python3 -c 'import sys; print(".".join(map(str, sys.version_info[:2])))') -d2 -j$(nproc) threading=multi,single link=shared,static install
-  #   sources:
-  #     - type: archive
-  #       url: https://github.com/boostorg/boost/releases/download/boost-1.86.0/boost-1.86.0-b2-nodocs.tar.xz
-  #       sha256: a4d99d032ab74c9c5e76eddcecc4489134282245fffa7e079c5804b92b45f51d
-  #   build-options:
-  #     env:
-  #       CXXFLAGS: "-std=c++14"
-  #       PYTHON: "/app/bin/python3"
-  #       PYTHONINCLUDE: "/app/include/python$(python3 -c 'import sys; print(\".\".join(map(str, sys.version_info[:2])))')"
-  #       PYTHONLIB: "/app/lib"
-  #   cleanup:
-  #     - /app/share/boost
+    cleanup:
+      - /app/share/boost
 
   - name: python3
     buildsystem: autotools
@@ -297,50 +293,70 @@ modules:
 
   - name: rdkit
     buildsystem: cmake
+    build-options:
+      build-args:
+        - --share=network
     sources:
       - type: archive
         url: https://github.com/rdkit/rdkit/archive/refs/tags/Release_2024_09_1.tar.gz
         sha256: 034c00d6e9de323506834da03400761ed8c3721095114369d06805409747a60f
-    # build-options:
-    #   environment:
-    #     CMAKE_PREFIX_PATH: "/app/lib/cmake/Boost-1.86.0"
-    build-commands:
-      - mkdir build
-      - cd build
-      - cmake \
-          -DCMAKE_INSTALL_RPATH=/app/lib \
-          -DRDK_INSTALL_INTREE=OFF \
-          -DRDK_BUILD_SWIG_WRAPPERS=OFF \
-          -DRDK_BUILD_AVALON_SUPPORT=ON \
-          -DRDK_BUILD_PGSQL=ON \
-          -DRDK_PGSQL_STATIC=ON \
-          -DMAEPARSER_FORCE_BUILD=ON \
-          -DCOORDGEN_FORCE_BUILD=ON \
-          -DRDK_BUILD_INCHI_SUPPORT=ON \
-          -DRDK_BUILD_CPP_TESTS=OFF \
-          -DRDK_INSTALL_STATIC_LIBS=OFF \
-          -DRDK_BUILD_CAIRO_SUPPORT=ON \
-          -DRDK_BUILD_YAEHMOP_SUPPORT=ON \
-          -DRDK_BUILD_FREESASA_SUPPORT=ON \
-          -DBoost_NO_BOOST_CMAKE=ON \
-          -DPYTHON_INCLUDE_DIR=/app/include/python3 \
-          -DPYTHON_EXECUTABLE=/app/bin/python3 \
-          -DPython3_NumPy_INCLUDE_DIRS=/app/lib/python3.12/site-packages/numpy/core/include \
-          -DPostgreSQL_CONFIG=/app/bin/pg_config \
-          -Dboost_numpy_DIR="/app/lib/cmake/Boost-1.86.0" \
-          ..
-      - cmake --build .
-      - cmake --install .
+      # - type: patch
+      #   path: https://github.com/rdkit/rdkit/commit/3ade0f8cd31be54fc267b9f5e94e8aa755f56f36.patch?full_index=1
+      #   sha256: 09696dc4c26832f5c5126d059ae0d71a12ab404438e55e8f9a90880a1fad6c03
+    config-opts:
+      - -DCMAKE_INSTALL_PREFIX=/app/lib
+      - -DRDK_INSTALL_INTREE=OFF
+      - -DRDK_BUILD_SWIG_WRAPPERS=OFF
+      - -DRDK_BUILD_AVALON_SUPPORT=ON
+      - -DRDK_PGSQL_STATIC=OFF
+      - -DRDK_BUILD_INCHI_SUPPORT=ON
+      - -DRDK_BUILD_CPP_TESTS=OFF
+      - -DRDK_INSTALL_STATIC_LIBS=OFF
+      - -DRDK_BUILD_CAIRO_SUPPORT=ON
+      - -DRDK_BUILD_YAEHMOP_SUPPORT=ON
+      - -DRDK_BUILD_FREESASA_SUPPORT=ON
+      - -DPython3_EXECUTABLE=/app/bin/python3
+      - -DPYTHON_INCLUDE_DIR=/app/include/python3
+      - -DPYTHON_EXECUTABLE=/app/bin/python3
+      - -DPython3_NumPy_INCLUDE_DIRS=/app/lib/python3.12/site-packages/numpy/core/include
+      - -DPostgreSQL_CONFIG=/app/bin/pg_config
+      - -Dboost_numpy_DIR="/app/lib/cmake/Boost-1.86.0"
+    # build-commands:
+    #   - mkdir build
+    #   - cd build
+    #   - cmake .. \
+    #       -DCMAKE_INSTALL_RPATH=/app/lib \
+    #       -DRDK_INSTALL_INTREE=OFF \
+    #       -DRDK_BUILD_SWIG_WRAPPERS=OFF \
+    #       -DRDK_BUILD_AVALON_SUPPORT=ON \
+    #       -DRDK_BUILD_PGSQL=ON \
+    #       -DRDK_PGSQL_STATIC=ON \
+    #       -DMAEPARSER_FORCE_BUILD=ON \
+    #       -DCOORDGEN_FORCE_BUILD=ON \
+    #       -DRDK_BUILD_INCHI_SUPPORT=ON \
+    #       -DRDK_BUILD_CPP_TESTS=OFF \
+    #       -DRDK_INSTALL_STATIC_LIBS=OFF \
+    #       -DRDK_BUILD_CAIRO_SUPPORT=ON \
+    #       -DRDK_BUILD_YAEHMOP_SUPPORT=ON \
+    #       -DRDK_BUILD_FREESASA_SUPPORT=ON \
+    #       -DBoost_NO_BOOST_CMAKE=ON \
+    #       -DPYTHON_INCLUDE_DIR=/app/include/python3 \
+    #       -DPYTHON_EXECUTABLE=/app/bin/python3 \
+    #       -DPython3_NumPy_INCLUDE_DIRS=/app/lib/python3.12/site-packages/numpy/core/include \
+    #       -DPostgreSQL_CONFIG=/app/bin/pg_config \
+    #       -Dboost_numpy_DIR="/app/lib/cmake/Boost-1.86.0"
+    #   - cmake --build .
+    #   - cmake --install .
 
-    # dependencies:
-    #   - boost
-    #   - boost-python3
-    #   - cairo
-    #   - eigen
-    #   - freetype
-    #   - numpy
-    #   - postgresql
-    #   - swig
+    dependencies:
+      - boost
+      - boost-python3
+      - cairo
+      - eigen
+      - freetype
+      - numpy
+      - postgresql
+      - swig
 
     # test:
     #   commands:
