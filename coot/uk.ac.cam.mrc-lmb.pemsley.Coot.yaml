@@ -304,24 +304,25 @@ modules:
       #   path: https://github.com/rdkit/rdkit/commit/3ade0f8cd31be54fc267b9f5e94e8aa755f56f36.patch?full_index=1
       #   sha256: 09696dc4c26832f5c5126d059ae0d71a12ab404438e55e8f9a90880a1fad6c03
     config-opts:
-      - -DCMAKE_INSTALL_PREFIX=/app/lib
-      - -DRDK_INSTALL_INTREE=OFF
-      - -DRDK_BUILD_SWIG_WRAPPERS=OFF
-      - -DRDK_BUILD_AVALON_SUPPORT=ON
-      - -DRDK_PGSQL_STATIC=OFF
-      - -DRDK_BUILD_INCHI_SUPPORT=ON
-      - -DRDK_BUILD_CPP_TESTS=OFF
-      - -DRDK_INSTALL_STATIC_LIBS=OFF
-      - -DRDK_BUILD_CAIRO_SUPPORT=ON
-      - -DRDK_BUILD_YAEHMOP_SUPPORT=ON
-      - -DRDK_BUILD_FREESASA_SUPPORT=ON
-      - -DPython3_EXECUTABLE=/app/bin/python3
-      - -DPYTHON_INCLUDE_DIR=/app/include/python3
-      - -DPYTHON_EXECUTABLE=/app/bin/python3
-      - -DPython3_NumPy_INCLUDE_DIRS=/app/lib/python3.12/site-packages/numpy/core/include
-      - -DPostgreSQL_CONFIG=/app/bin/pg_config
-      - -Dboost_numpy_DIR="/app/lib/cmake/Boost-1.86.0"
-    # build-commands:
+      - CMAKE_INSTALL_PREFIX=/app
+      - RDK_INSTALL_INTREE=OFF
+      - RDK_BUILD_SWIG_WRAPPERS=OFF
+      - RDK_BUILD_AVALON_SUPPORT=ON
+      - RDK_PGSQL_STATIC=OFF
+      - RDK_BUILD_INCHI_SUPPORT=ON
+      - RDK_BUILD_CPP_TESTS=OFF
+      - RDK_INSTALL_STATIC_LIBS=OFF
+      - RDK_BUILD_CAIRO_SUPPORT=ON
+      - RDK_BUILD_YAEHMOP_SUPPORT=ON
+      - RDK_BUILD_FREESASA_SUPPORT=ON
+      - Python3_EXECUTABLE=/app/bin/python3
+      - PYTHON_INCLUDE_DIR=/app/include/python3
+      - PYTHON_EXECUTABLE=/app/bin/python3
+      - Python3_NumPy_INCLUDE_DIRS=/app/lib/python3.12/site-packages/numpy/_core/include/numpy
+      - PostgreSQL_CONFIG=/app/bin/pg_config
+      - boost_numpy_DIR="/app/lib/cmake/Boost-1.86.0"
+      - CMAKE_PREFIX_PATH="/app/lib/cmake/Boost-1.86.0"
+    # # build-commands:
     #   - mkdir build
     #   - cd build
     #   - cmake .. \
@@ -348,15 +349,15 @@ modules:
     #   - cmake --build .
     #   - cmake --install .
 
-    dependencies:
-      - boost
-      - boost-python3
-      - cairo
-      - eigen
-      - freetype
-      - numpy
-      - postgresql
-      - swig
+    # dependencies:
+    #   - boost
+    #   - boost-python3
+    #   - cairo
+    #   - eigen
+    #   - freetype
+    #   - numpy
+    #   - postgresql
+    #   - swig
 
     # test:
     #   commands:
