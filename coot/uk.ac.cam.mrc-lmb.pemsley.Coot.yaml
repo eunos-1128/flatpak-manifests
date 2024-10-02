@@ -218,24 +218,6 @@ modules:
       env:
         CXXFLAGS: "-std=c++14"
 
-  - name: boost-python3
-    buildsystem: simple
-    build-commands:
-      - ./bootstrap.sh --prefix=/app --libdir=/app/lib --with-python=python3.12 --with-python-root=/app --with-libraries=python
-      - ./b2 --build-dir=build-python3 --stagedir=stage-python3 --prefix=/app --libdir=/app/lib -j$(nproc) --layout=tagged-1.66 threading=multi,single link=shared,static install
-    sources:
-      - type: archive
-        url: https://github.com/boostorg/boost/releases/download/boost-1.86.0/boost-1.86.0-b2-nodocs.tar.xz
-        sha256: a4d99d032ab74c9c5e76eddcecc4489134282245fffa7e079c5804b92b45f51d
-    build-options:
-      env:
-        CXXFLAGS: "-std=c++14"
-        PYTHON: "/app/bin/python3"
-        PYTHONINCLUDE: "/app/include/python$(python3 -c 'import sys; print(\".\".join(map(str, sys.version_info[:2])))')"
-        PYTHONLIB: "/app/lib"
-    cleanup:
-      - /app/share/boost
-
   - name: python3
     buildsystem: autotools
     build-options:
@@ -269,16 +251,6 @@ modules:
   #       url: https://github.com/pypa/wheel/archive/refs/tags/0.44.0.tar.gz
   #       sha256: a98adedb1f4b409c4aa211fbe4bbc1d687a2b7cf66cfe3079fc3140b2e4e0ce1
 
-  # - name: setuptools
-  #   buildsystem: simple
-  #   build-commands:
-  #     - /app/bin/python3 bootstrap.py
-  #     - /app/bin/python3 setup.py install
-  #   sources:
-  #     - type: archive
-  #       url: https://github.com/pypa/setuptools/archive/v41.5.1.tar.gz
-  #       sha256: 87ea6891958f8eaf93f1034d5aa5459e27167b52886d1d22e8dad66f342c5eed
-
   - name: numpy
     buildsystem: simple
     build-options:
@@ -290,6 +262,31 @@ modules:
     #   - type: archive
     #     url: https://github.com/numpy/numpy/archive/refs/tags/v1.26.3.tar.gz
     #     sha256: c6f91dbb343b1df017cc79b2053da1a67cff365ff40ee1df77cc11b971c49207
+
+  - name: boost-python3
+    buildsystem: simple
+    build-commands:
+      - py_ver=3.12
+      - echo "using python" > user-config.jam
+      - echo ": $py_ver" >> user-config.jam
+      - echo ": /app/bin/python3" >> user-config.jam
+      - echo ": /app/include/python3.12" >> user-config.jam
+      - echo ": /app/lib" >> user-config.jam
+      - echo ";" >> user-config.jam
+      - ./bootstrap.sh --prefix=/app --libdir=/app/lib --with-python=python3.12 --with-python-root=/app --with-libraries=python
+      - ./b2 --build-dir=build-python3 --stagedir=stage-python3 --prefix=/app --libdir=/app/lib abi=sysv linkflags=-L/app/lib --user-config=user-config.jam python=3.12 -d2 -j$(nproc) --layout=system threading=multi,single link=shared,static install
+    sources:
+      - type: archive
+        url: https://github.com/boostorg/boost/releases/download/boost-1.86.0/boost-1.86.0-b2-nodocs.tar.xz
+        sha256: a4d99d032ab74c9c5e76eddcecc4489134282245fffa7e079c5804b92b45f51d
+    build-options:
+      env:
+        CXXFLAGS: "-std=c++14"
+        PYTHON: "/app/bin/python3"
+        PYTHONINCLUDE: "/app/include/python$(python3 -c 'import sys; print(\".\".join(map(str, sys.version_info[:2])))')"
+        PYTHONLIB: "/app/lib"
+    cleanup:
+      - /app/share/boost
 
   - name: rdkit
     buildsystem: cmake
@@ -304,7 +301,7 @@ modules:
       #   path: https://github.com/rdkit/rdkit/commit/3ade0f8cd31be54fc267b9f5e94e8aa755f56f36.patch?full_index=1
       #   sha256: 09696dc4c26832f5c5126d059ae0d71a12ab404438e55e8f9a90880a1fad6c03
     config-opts:
-      - "-DCMAKE_INSTALL_PREFIX=/app/lib"
+      - "-DCMAKE_INSTALL_PREFIX=/app"
       - "-DRDK_INSTALL_INTREE=OFF"
       - "-DRDK_BUILD_SWIG_WRAPPERS=OFF"
       - "-DRDK_BUILD_AVALON_SUPPORT=ON"
@@ -315,40 +312,7 @@ modules:
       - "-DRDK_BUILD_CAIRO_SUPPORT=ON"
       - "-DRDK_BUILD_YAEHMOP_SUPPORT=ON"
       - "-DRDK_BUILD_FREESASA_SUPPORT=ON"
-      - "-DPython3_EXECUTABLE=/app/bin/python3"
-      - "-DPYTHON_INCLUDE_DIR=/app/include/python3"
-      - "-DPYTHON_EXECUTABLE=/app/bin/python3"
-      - "-DPython3_NumPy_INCLUDE_DIRS=/app/lib/python3.12/site-packages/numpy/_core/include/numpy"
-      - "-DPostgreSQL_CONFIG=/app/bin/pg_config"
-      - "-DCMAKE_PREFIX_PATH=/app/lib/cmake/boost_python-1.86.0"
-      - "-Dboost_numpy_DIR=/app/lib/cmake/boost_python-1.86.0"
-    # # build-commands:
-    #   - mkdir build
-    #   - cd build
-    #   - cmake .. \
-    #       -DCMAKE_INSTALL_RPATH=/app/lib \
-    #       -DRDK_INSTALL_INTREE=OFF \
-    #       -DRDK_BUILD_SWIG_WRAPPERS=OFF \
-    #       -DRDK_BUILD_AVALON_SUPPORT=ON \
-    #       -DRDK_BUILD_PGSQL=ON \
-    #       -DRDK_PGSQL_STATIC=ON \
-    #       -DMAEPARSER_FORCE_BUILD=ON \
-    #       -DCOORDGEN_FORCE_BUILD=ON \
-    #       -DRDK_BUILD_INCHI_SUPPORT=ON \
-    #       -DRDK_BUILD_CPP_TESTS=OFF \
-    #       -DRDK_INSTALL_STATIC_LIBS=OFF \
-    #       -DRDK_BUILD_CAIRO_SUPPORT=ON \
-    #       -DRDK_BUILD_YAEHMOP_SUPPORT=ON \
-    #       -DRDK_BUILD_FREESASA_SUPPORT=ON \
-    #       -DBoost_NO_BOOST_CMAKE=ON \
-    #       -DPYTHON_INCLUDE_DIR=/app/include/python3 \
-    #       -DPYTHON_EXECUTABLE=/app/bin/python3 \
-    #       -DPython3_NumPy_INCLUDE_DIRS=/app/lib/python3.12/site-packages/numpy/core/include \
-    #       -DPostgreSQL_CONFIG=/app/bin/pg_config \
-    #       -Dboost_numpy_DIR="/app/lib/cmake/Boost-1.86.0"
-    #   - cmake --build .
-    #   - cmake --install .
-
+      - "-DPython3_EXECUTABLE=$(which python3)"
     # dependencies:
     #   - boost
     #   - boost-python3
@@ -358,7 +322,6 @@ modules:
     #   - numpy
     #   - postgresql
     #   - swig
-
     # test:
     #   commands:
     #     - /usr/bin/python3 -c "import rdkit"
@@ -466,13 +429,35 @@ modules:
       - g++ -o test test.cpp -I/app/include
       - ./test
 
+  # - name: setuptools
+  #   buildsystem: simple
+  #   build-commands:
+  #     - /app/bin/python3 bootstrap.py
+  #     - /app/bin/python3 setup.py install
+  #   sources:
+  #     - type: archive
+  #       url: https://github.com/pypa/setuptools/archive/v41.5.1.tar.gz
+  #       sha256: 87ea6891958f8eaf93f1034d5aa5459e27167b52886d1d22e8dad66f342c5eed
+
+  - name: setuptools
+    buildsystem: simple
+    build-options:
+      build-args:
+        - --share=network
+    build-commands:
+      - /app/bin/python3 -m pip install setuptools
+
+    # sources:
+    #   - type: archive
+    #     url: https://github.com/pypa/setuptools/archive/v41.5.1.tar.gz
+    #     sha256: 87ea6891958f8eaf93f1034d5aa5459e27167b52886d1d22e8dad66f342c5eed
+
   - name: gtk4
     buildsystem: meson
     sources:
       - type: archive
         url: https://download.gnome.org/sources/gtk/4.16/gtk-4.16.2.tar.xz
         sha256: 34b624848e5de22a138b675ad6f39c0c7b9d67907c10e1fc7e5b03060e8d5437
-
     config-opts:
       - -Dbuild-examples=false
       - -Dbuild-tests=false
@@ -480,29 +465,24 @@ modules:
       - -Dman-pages=false
       - -Dmedia-gstreamer=disabled
       - -Dvulkan=disabled
-
     build-options:
       environment:
         DESTDIR: "/app"
         CPPFLAGS: "-DG_DISABLE_ASSERT -DG_DISABLE_CAST_CHECKS"
-
     build:
       commands:
         - meson setup build
         - meson compile -C build
         - meson install -C build
-
     post-install:
       commands:
         - glib-compile-schemas /app/share/glib-2.0/schemas
         - gtk4-update-icon-cache -f -t /app/share/icons/hicolor
         - gio-querymodules /app/lib/gtk-4.0/4.0.0/printbackends
-
     test-commands:
       - |
         cat << EOF > test.c
         #include <gtk/gtk.h>
-
         int main(int argc, char *argv[]) {
           gtk_disable_setlocale();
           return 0;
@@ -523,12 +503,6 @@ modules:
       - --with-backward
       - --with-libdw
       - BOOST_PYTHON_LIB=boost_python312-mt
-    sources:
-      - type: archive
-        url: https://www2.mrc-lmb.cam.ac.uk/personal/pemsley/coot/source/releases/coot-1.1.10.tar.gz
-        sha256: 447caa7bdd6f87b738d20f8db15aa278476c308e22506004ed145e04f85e0413
-      # - type: patch
-      #   path: clipper-configure-2.patch
     build-options:
       append-path:
         - /app/lib
@@ -536,3 +510,11 @@ modules:
       environment:
         CXXFLAGS: "-fPIC"
         CPPFLAGS: "-D_USE_BOOST=1"
+        LDFLAGS: "-L/path/to/python3.12/lib -lpython3.12"
+    sources:
+      - type: archive
+        url: https://www2.mrc-lmb.cam.ac.uk/personal/pemsley/coot/source/releases/coot-1.1.10.tar.gz
+        sha256: 447caa7bdd6f87b738d20f8db15aa278476c308e22506004ed145e04f85e0413
+      # - type: patch
+      #   path: clipper-configure-2.patch
+
