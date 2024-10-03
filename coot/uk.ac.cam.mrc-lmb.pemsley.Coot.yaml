@@ -224,7 +224,7 @@ modules:
       build-args:
         - --share=network
     build-commands:
-      - ./configure --prefix=/app --with-ensurepip=install
+      - ./configure --prefix=/app --with-ensurepip=install --enable-shared
                     # --with-openssl=/app \
                     # --enable-loadable-sqlite-extensions \
                     # --enable-ipv6
@@ -491,6 +491,27 @@ modules:
       - gcc test.c -o test $(pkg-config --cflags --libs gtk4)
       - ./test
       - assert grep -q "4.16.2" ${libdir}/pkgconfig/gtk4.pc
+
+  - name: openblas
+    buildsystem: simple
+    builddir: true
+    sources:
+      - type: archive
+        url: https://github.com/OpenMathLib/OpenBLAS/archive/refs/tags/v0.3.28.tar.gz
+        sha256: f1003466ad074e9b0c8d421a204121100b0751c96fc6fcf3d1456bd12f8a00a1
+    build-commands:
+      - export DYNAMIC_ARCH=1
+      - export USE_OPENMP=1
+      - export NUM_THREADS=56
+      - export TARGET=$(uname -m)
+      - export NO_SVE=1
+      - make CC=gcc FC=gfortran libs netlib shared -j1
+      - make PREFIX=/app install
+      - ln -s /app/lib/libopenblas.so /app/lib/libblas.so
+      - ln -s /app/lib/libopenblas.so /app/lib/liblapack.so
+    cleanup:
+      - /app/share/man
+      - /app/share/doc
 
   - name: coot
     buildsystem: autotools
